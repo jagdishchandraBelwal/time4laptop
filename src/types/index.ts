@@ -75,6 +75,7 @@ export interface CartItem {
 }
 
 export interface UserAddress {
+  id?: string;
   fullName: string;
   phone: string;
   addressLine: string;
@@ -82,6 +83,7 @@ export interface UserAddress {
   state: string;
   pincode: string;
   type: 'Home' | 'Work';
+  isDefault?: boolean;
 }
 
 export type PaymentMethod = 'UPI' | 'Card' | 'EMI' | 'COD' | 'NetBanking';

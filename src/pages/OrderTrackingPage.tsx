@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Search, 
   Package, 
@@ -27,6 +27,12 @@ export const OrderTrackingPage: React.FC = () => {
   const { orders, trackingOrderId, navigateToTracking, showToast, setPage } = useStore();
   const [searchInput, setSearchInput] = useState(trackingOrderId || (orders[0]?.id || ''));
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+
+  useEffect(() => {
+    if (trackingOrderId) {
+      setSearchInput(trackingOrderId);
+    }
+  }, [trackingOrderId]);
 
   // Find targeted order
   const currentOrder = orders.find(

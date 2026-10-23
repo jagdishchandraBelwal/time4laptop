@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Product, ProductCategory, CartItem, Order, User, Coupon, PageView, PaymentMethod, EmiTenure } from '../types';
+import { Product, ProductCategory, CartItem, Order, User, Coupon, PageView, PaymentMethod, EmiTenure, UserAddress } from '../types';
 import { allProducts } from '../data/products';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
@@ -71,6 +71,14 @@ interface StoreContextType {
   logout: () => Promise<void>;
   loginAsDemoAdmin: () => void;
   promoteUserRole: (userId: string, newRole: 'customer' | 'admin', userEmail?: string) => Promise<void>;
+
+  // User Profile & Addresses
+  updateProfile: (profileData: { name: string; phone: string }) => Promise<void>;
+  addAddress: (address: Omit<UserAddress, 'id'>) => Promise<void>;
+  updateAddress: (addressId: string, address: Partial<UserAddress>) => Promise<void>;
+  deleteAddress: (addressId: string) => Promise<void>;
+  setDefaultAddress: (addressId: string) => Promise<void>;
+
   showToast: (message: string, type?: 'success' | 'info' | 'error') => void;
 }
 
@@ -80,15 +88,51 @@ const DEFAULT_COUPONS: Coupon[] = [
   { code: 'GAMERPRO', discountAmount: 2000, minOrder: 40000, description: 'Flat ₹2,000 OFF on Gaming Rigs & Laptops' }
 ];
 
-const toStoreUser = (authUser: SupabaseUser | null): User | null => {
+const DEFAULT_SAMPLE_ADDRESSES: UserAddress[] = [
+  {
+    id: 'addr-01',
+    fullName: 'Rajesh Kumar Sharma',
+    phone: '+91 98765 43210',
+    addressLine: 'Flat 402, Shanti Heights, Near Lotus Temple, Nehru Place',
+    city: 'New Delhi',
+    state: 'Delhi',
+    pincode: '110019',
+    type: 'Home',
+    isDefault: true
+  },
+  {
+    id: 'addr-02',
+    fullName: 'Rajesh Sharma (IT Studio)',
+    phone: '+91 98765 43210',
+    addressLine: 'Tech Hub Towers, 5th Floor, Cyber City, DLF Phase 2',
+    city: 'Gurugram',
+    state: 'Haryana',
+    pincode: '122002',
+    type: 'Work',
+    isDefault: false
+  }
+];
+
+const toStoreUser = (authUser: SupabaseUser | null, userAddresses: UserAddress[] = DEFAULT_SAMPLE_ADDRESSES): User | null => {
   if (!authUser) return null;
 
-  const name = typeof authUser.user_metadata?.full_name === 'string'
+  const savedProfile = localStorage.getItem('time4laptop_user_profile');
+  let customName = '';
+  let customPhone = '';
+  if (savedProfile) {
+    try {
+      const parsed = JSON.parse(savedProfile);
+      customName = parsed.name;
+      customPhone = parsed.phone;
+    } catch (e) {}
+  }
+
+  const name = customName || (typeof authUser.user_metadata?.full_name === 'string'
     ? authUser.user_metadata.full_name
-    : authUser.email?.split('@')[0] || 'Customer';
-  const phone = typeof authUser.user_metadata?.phone === 'string'
+    : authUser.email?.split('@')[0] || 'Customer');
+  const phone = customPhone || (typeof authUser.user_metadata?.phone === 'string'
     ? authUser.user_metadata.phone
-    : '';
+    : '');
 
   return {
     id: authUser.id,
@@ -97,7 +141,7 @@ const toStoreUser = (authUser: SupabaseUser | null): User | null => {
     phone,
     // Supabase app_metadata is managed by the project owner and cannot be edited by customers.
     role: authUser.app_metadata?.role === 'admin' ? 'admin' : 'customer',
-    addresses: []
+    addresses: userAddresses
   };
 };
 
@@ -183,9 +227,51 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return [];
   });
 
-  // Authentication is sourced from Supabase; a browser-stored display object is not trusted.
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  // Saved Addresses State
+  const [savedAddresses, setSavedAddresses] = useState<UserAddress[]>(() => {
+    const saved = localStorage.getItem('time4laptop_saved_addresses');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return DEFAULT_SAMPLE_ADDRESSES;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('time4laptop_saved_addresses', JSON.stringify(savedAddresses));
+  }, [savedAddresses]);
+
+  // Authentication is sourced from Supabase with local fallback profile
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    const savedProfile = localStorage.getItem('time4laptop_user_profile');
+    let name = 'Rajesh Kumar Sharma';
+    let phone = '+91 98765 43210';
+    if (savedProfile) {
+      try {
+        const p = JSON.parse(savedProfile);
+        if (p.name) name = p.name;
+        if (p.phone) phone = p.phone;
+      } catch (e) {}
+    }
+    return {
+      id: 'usr-customer-01',
+      name,
+      email: 'customer@time4laptop.com',
+      phone,
+      role: 'customer',
+      addresses: DEFAULT_SAMPLE_ADDRESSES
+    };
+  });
   const [authLoading, setAuthLoading] = useState(isSupabaseConfigured);
+
+  // Sync addresses to currentUser
+  useEffect(() => {
+    setCurrentUser(prev => prev ? { ...prev, addresses: savedAddresses } : null);
+  }, [savedAddresses]);
 
   // Coupons
   const [coupons, setCoupons] = useState<Coupon[]>(() => {
@@ -235,7 +321,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setCurrentUser(toStoreUser(session?.user ?? null));
+      if (session?.user) {
+        setCurrentUser(toStoreUser(session.user, savedAddresses));
+      }
       setAuthLoading(false);
     });
 
@@ -550,10 +638,117 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       email: 'admin@time4laptop.com',
       phone: '+91 98765 43210',
       role: 'admin',
-      addresses: []
+      addresses: savedAddresses
     };
     setCurrentUser(demoAdmin);
     showToast('Logged in as Store Admin (Preview Mode)');
+  };
+
+  const updateProfile = async (profileData: { name: string; phone: string }) => {
+    const trimmedName = profileData.name.trim();
+    const trimmedPhone = profileData.phone.trim();
+
+    if (currentUser) {
+      setCurrentUser(prev => prev ? { ...prev, name: trimmedName, phone: trimmedPhone } : null);
+    }
+    localStorage.setItem('time4laptop_user_profile', JSON.stringify({ name: trimmedName, phone: trimmedPhone }));
+
+    if (supabase && currentUser) {
+      try {
+        await supabase.from('profiles').update({ name: trimmedName, phone: trimmedPhone }).eq('id', currentUser.id);
+        await supabase.auth.updateUser({ data: { full_name: trimmedName, phone: trimmedPhone } });
+      } catch (err) {
+        console.warn('Supabase updateProfile error:', err);
+      }
+    }
+    showToast('Profile details updated successfully!', 'success');
+  };
+
+  const addAddress = async (newAddr: Omit<UserAddress, 'id'>) => {
+    const id = 'addr-' + Date.now().toString().slice(-6);
+    const shouldBeDefault = newAddr.isDefault || savedAddresses.length === 0;
+
+    const formatted: UserAddress = {
+      ...newAddr,
+      id,
+      isDefault: shouldBeDefault
+    };
+
+    const updated = shouldBeDefault
+      ? [formatted, ...savedAddresses.map(a => ({ ...a, isDefault: false }))]
+      : [...savedAddresses, formatted];
+
+    setSavedAddresses(updated);
+    if (currentUser) {
+      setCurrentUser(prev => prev ? { ...prev, addresses: updated } : null);
+    }
+
+    if (supabase && currentUser) {
+      try {
+        await supabase.from('addresses').insert([{
+          id,
+          user_id: currentUser.id,
+          full_name: formatted.fullName,
+          phone: formatted.phone,
+          address_line: formatted.addressLine,
+          city: formatted.city,
+          state: formatted.state,
+          pincode: formatted.pincode,
+          address_type: formatted.type,
+          is_default: formatted.isDefault
+        }]);
+      } catch (err) {
+        console.warn('Supabase addAddress error:', err);
+      }
+    }
+    showToast('Delivery address saved successfully!', 'success');
+  };
+
+  const updateAddress = async (addressId: string, updatedAddr: Partial<UserAddress>) => {
+    const isNowDefault = updatedAddr.isDefault;
+    const updated = savedAddresses.map(a => {
+      if (a.id === addressId) {
+        return { ...a, ...updatedAddr };
+      }
+      if (isNowDefault) {
+        return { ...a, isDefault: false };
+      }
+      return a;
+    });
+
+    setSavedAddresses(updated);
+    if (currentUser) {
+      setCurrentUser(prev => prev ? { ...prev, addresses: updated } : null);
+    }
+    showToast('Address updated successfully!', 'success');
+  };
+
+  const deleteAddress = async (addressId: string) => {
+    const toDelete = savedAddresses.find(a => a.id === addressId);
+    let remaining = savedAddresses.filter(a => a.id !== addressId);
+
+    // If deleted address was default, make the first remaining address default
+    if (toDelete?.isDefault && remaining.length > 0) {
+      remaining = remaining.map((a, idx) => idx === 0 ? { ...a, isDefault: true } : a);
+    }
+
+    setSavedAddresses(remaining);
+    if (currentUser) {
+      setCurrentUser(prev => prev ? { ...prev, addresses: remaining } : null);
+    }
+    showToast('Address deleted', 'info');
+  };
+
+  const setDefaultAddress = async (addressId: string) => {
+    const updated = savedAddresses.map(a => ({
+      ...a,
+      isDefault: a.id === addressId
+    }));
+    setSavedAddresses(updated);
+    if (currentUser) {
+      setCurrentUser(prev => prev ? { ...prev, addresses: updated } : null);
+    }
+    showToast('Default delivery address updated!', 'success');
   };
 
   return (
@@ -607,6 +802,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         logout,
         loginAsDemoAdmin,
         promoteUserRole,
+        updateProfile,
+        addAddress,
+        updateAddress,
+        deleteAddress,
+        setDefaultAddress,
         showToast
       }}
     >

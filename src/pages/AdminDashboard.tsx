@@ -822,13 +822,23 @@ export const AdminDashboard: React.FC = () => {
                       </select>
                     </td>
                     <td className="p-3 text-right">
-                      <button
-                        onClick={() => setSelectedOrder(o)}
-                        className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>Inspect</span>
-                      </button>
+                      <div className="inline-flex items-center gap-1.5 justify-end">
+                        <button
+                          onClick={() => setSelectedInvoiceOrder(o)}
+                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition border border-slate-200"
+                          title="Print Tax Invoice / AWB Packing Slip"
+                        >
+                          <Printer className="w-3.5 h-3.5 text-purple-700" />
+                          <span>Invoice</span>
+                        </button>
+                        <button
+                          onClick={() => setSelectedOrder(o)}
+                          className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-800 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Inspect</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1209,6 +1219,63 @@ export const AdminDashboard: React.FC = () => {
                 </div>
               </div>
 
+              {/* Refurbished Condition Grade & SKU */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-700">Refurbished Grade *</label>
+                  <select
+                    value={formData.conditionGrade}
+                    onChange={(e) => setFormData({ ...formData, conditionGrade: e.target.value as any })}
+                    className="w-full px-3 py-2 bg-emerald-50/60 border border-emerald-300 rounded-lg text-xs font-bold text-emerald-900"
+                  >
+                    <option value="Grade A - Like New">Grade A - Like New (Pristine, 0 Marks)</option>
+                    <option value="Grade B - Excellent">Grade B - Excellent (Light Cosmetic)</option>
+                    <option value="Grade C - Good">Grade C - Good (Visible Wear)</option>
+                    <option value="Grade D - Fair">Grade D - Fair (Heavy Wear / Budget)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-700">SKU / Model Serial</label>
+                  <input
+                    type="text"
+                    value={formData.sku}
+                    onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                    placeholder="e.g. T4L-LAP-8821"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-700">Battery Health % (Laptops & Mobiles)</label>
+                  <input
+                    type="number"
+                    min="50"
+                    max="100"
+                    value={formData.batteryHealth}
+                    onChange={(e) => setFormData({ ...formData, batteryHealth: Number(e.target.value) })}
+                    placeholder="e.g. 94"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-700">Warranty Period</label>
+                  <select
+                    value={formData.warranty}
+                    onChange={(e) => setFormData({ ...formData, warranty: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
+                  >
+                    <option value="1 Year Certified Refurbished Warranty">1 Year Comprehensive Warranty</option>
+                    <option value="6 Months Certified Refurbished Warranty">6 Months Hardware Warranty</option>
+                    <option value="2 Years Extended Hardware Warranty">2 Years Extended Hardware Warranty</option>
+                    <option value="3 Months Limited Warranty">3 Months Limited Warranty</option>
+                  </select>
+                </div>
+              </div>
+
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <label className="font-semibold text-slate-700">Selling Price (₹) *</label>
@@ -1379,16 +1446,16 @@ export const AdminDashboard: React.FC = () => {
             {/* Action Bar */}
             <div className="flex justify-between items-center pt-2">
               <button
-                onClick={() => window.print()}
-                className="px-4 py-2 border border-slate-300 hover:bg-slate-50 rounded-lg text-xs font-semibold flex items-center gap-1.5"
+                onClick={() => setSelectedInvoiceOrder(selectedOrder)}
+                className="px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow"
               >
-                <Printer className="w-4 h-4 text-slate-600" />
-                <span>Print Invoice</span>
+                <Printer className="w-4 h-4" />
+                <span>Print Tax Invoice & Seal</span>
               </button>
 
               <button
                 onClick={() => setSelectedOrder(null)}
-                className="px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white rounded-lg text-xs font-bold"
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold"
               >
                 Close
               </button>
@@ -1541,6 +1608,12 @@ VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
           </div>
         </div>
       )}
+      {/* Official Tax Invoice & Packing Slip Modal */}
+      <InvoiceModal
+        order={selectedInvoiceOrder}
+        isOpen={!!selectedInvoiceOrder}
+        onClose={() => setSelectedInvoiceOrder(null)}
+      />
     </div>
   );
 };

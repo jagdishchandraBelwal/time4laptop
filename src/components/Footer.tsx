@@ -133,6 +133,21 @@ export const Footer: React.FC = () => {
             <h4 className="text-xs font-bold uppercase tracking-wider text-white mb-3">Customer Support</h4>
             <ul className="space-y-2 text-xs text-slate-400">
               <li>
+                <button onClick={() => setPage('warranty-policy')} className="hover:text-purple-400 transition-colors">
+                  🛡️ Certified Warranty Policy
+                </button>
+              </li>
+              <li>
+                <button onClick={() => setPage('return-policy')} className="hover:text-purple-400 transition-colors">
+                  🔄 7-Day Replacement & RMA
+                </button>
+              </li>
+              <li>
+                <button onClick={() => setPage('shipping-policy')} className="hover:text-purple-400 transition-colors">
+                  🚚 Express Shipping Timelines
+                </button>
+              </li>
+              <li>
                 <button onClick={() => setPage('order-tracking')} className="hover:text-purple-400 transition-colors">
                   Track Your Shipment
                 </button>
