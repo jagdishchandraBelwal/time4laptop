@@ -1,0 +1,6 @@
+{
+  "name": "time4laptop.com | Premium Electronics & IT Store",
+  "description": "India's premier IT electronics, laptops, mobiles, gaming consoles, and computer accessories store with genuine brand warranties and fast express delivery.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
